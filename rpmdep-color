@@ -1,0 +1,60 @@
+#!/bin/bash
+# Create randomly colored RPM dependency diagram as SVG.
+# Needs: rpmdep.pl (part of "rpmorphan" package), dot (part of "graphviz" package)
+# Usage: $ rpmdep-color PACKAGE_NAME
+
+brexit() {
+  echo "(meh) $1"
+  exit 1
+}
+
+value() {
+  fix=$1
+  variable=$2
+  echo '000'$((($RANDOM % ($variable + 1)) + $fix)) | \
+    sed -r \
+      -e 's/^.*([0-9]{3}$)/\1/' \
+      -e 's/^(.)/\1./'
+}
+
+random_hsv() {
+  # The colors are supposed to be both easily visible on white and
+  # distinctive, hence restrict saturation and value components.
+  #    hue              saturation       value
+  echo $(value 0 100)' '$(value 25 75)' '$(value 20 65)
+}
+
+app_help() {
+  echo "$0 - Create randomly colored RPM dependency diagram as SVG."
+  echo "Needs: rpmdep.pl (part of \"rpmorphan\" package), dot (part of \"graphviz\" package)"
+  echo "Usage: $ rpmdep-color PACKAGE_NAME"
+  exit 0
+}
+
+[[ ! $1 ]] && app_help
+
+package=$1
+
+rpm -qi "$package" >/dev/null 2>/dev/null
+[[ $? -gt 0 ]] && brexit "$package is not installed."
+
+outdot=/tmp/$package-$RANDOM.dot
+outsvg=$(echo "$outdot" | sed -r 's/dot$/svg/')
+
+rpmdep.pl -dot $outdot $package >/dev/null
+
+outdotmem=$(cat $outdot)
+
+outdotlen=$(echo -e "$outdotmem" | wc -l)
+
+{
+  for l in $(seq 1 $outdotlen); do
+    echo "$outdotmem" | sed -n "$l p" | sed -r 's/;$/ [color="'"$(random_hsv)"'"];/'
+  done
+} > $outdot
+
+
+dot -Tsvg $outdot -o $outsvg
+
+
+echo "$outsvg"
