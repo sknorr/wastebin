@@ -56,5 +56,6 @@ outdotlen=$(echo -e "$outdotmem" | wc -l)
 
 dot -Tsvg $outdot -o $outsvg
 
+sed -r -i 's|</svg>|<style type="text/css">path:hover, path:hover + polygon { stroke-width: 3px; }</style></svg>|' $outsvg
 
 echo "$outsvg"
