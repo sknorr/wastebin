@@ -1,0 +1,51 @@
+#!/bin/bash
+# Install a GNOME Shell extension
+
+out() {
+  echo -e "(meh) $1"
+  exit 1
+}
+
+mode='install'
+if [[ "$1" == '-u' ]] || [[ "$1" == '--uninstall' ]]; then
+  mode='uninstall'
+  shift
+elif [[ "$1" == '-c' ]] || [[ "$1" == '--clean' ]] || [[ "$1" == '--clean-install' ]]; then
+  mode='clean-install'
+  shift
+fi
+
+# Needs to be a file if installed, a UUID if uninstalled...
+extension="$1"
+uuid="$extension"
+
+if [[ ! -f "$extension" ]] && [[ $mode != 'uninstall' ]]; then
+  out "Extension file does not exist."
+fi
+
+if [[ $mode != 'uninstall' ]]; then
+  uuid=$(unzip -c "$extension" metadata.json | grep uuid | cut -d \" -f4)
+fi
+
+if [[ $mode == 'uninstall' ]] || [[ $mode == 'clean-install' ]]; then
+
+  gnome-shell-extension-tool -d "$uuid"
+
+  dconfs=$(xmllint -xpath '//schema/@path' ~/.local/share/gnome-shell/extensions/"$uuid"/schemas/*.xml | sed -r -e 's/^ *[^=]+="//g' -e 's/"( |$)/\n/g')
+  for dconf in $donfs; do
+    echo "Resetting $dconf"
+    dconf reset -f $dconf
+  done
+
+  rm -rf ~/.local/share/gnome-shell/extensions/"$uuid"/
+
+  [[ $mode == 'uninstall' ]] && exit
+fi
+
+
+echo "Installing $uuid."
+
+mkdir -p ~/.local/share/gnome-shell/extensions/"$uuid"
+unzip -q "$extension" -d ~/.local/share/gnome-shell/extensions/"$uuid"/
+
+gnome-shell-extension-tool -e "$uuid"
